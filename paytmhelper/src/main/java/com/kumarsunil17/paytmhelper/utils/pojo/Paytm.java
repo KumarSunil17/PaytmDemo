@@ -1,14 +1,34 @@
 package com.kumarsunil17.paytmhelper.utils.pojo;
 
-public class Paytm {
-    String amount, userId, email, phone;
+import android.os.Parcel;
+import android.os.Parcelable;
 
-    public Paytm(String amount, String userId, String email, String phone) {
+public class Paytm implements Parcelable {
+    private String amount, email, phone;
+
+    public Paytm(String amount, String email, String phone) {
         this.amount = amount;
-        this.userId = userId;
         this.email = email;
         this.phone = phone;
     }
+
+    private Paytm(Parcel in) {
+        amount = in.readString();
+        email = in.readString();
+        phone = in.readString();
+    }
+
+    public static final Creator<Paytm> CREATOR = new Creator<Paytm>() {
+        @Override
+        public Paytm createFromParcel(Parcel in) {
+            return new Paytm(in);
+        }
+
+        @Override
+        public Paytm[] newArray(int size) {
+            return new Paytm[size];
+        }
+    };
 
     public String getAmount() {
         return amount;
@@ -16,14 +36,6 @@ public class Paytm {
 
     public void setAmount(String amount) {
         this.amount = amount;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
     }
 
     public String getEmail() {
@@ -40,5 +52,17 @@ public class Paytm {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(amount);
+        dest.writeString(email);
+        dest.writeString(phone);
     }
 }

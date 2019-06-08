@@ -2,7 +2,9 @@ package com.kumarsunil17.paytmhelper.utils;
 
 import android.os.Bundle;
 
-public interface PaytmHelperTransactionCallback {
+import java.io.Serializable;
+
+public interface PaytmHelperTransactionCallback extends Serializable {
     public void onTransactionResponse(Bundle inResponse);
     public void networkNotAvailable();
     public void clientAuthenticationFailed(String inErrorMessage);
