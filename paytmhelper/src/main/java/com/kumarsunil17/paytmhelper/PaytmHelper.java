@@ -10,7 +10,7 @@ public class PaytmHelper {
 
     private static PaytmHelper mInstance;
     private Context context;
-    private String merchantID, serverurl, orderid, customerid;
+    private String merchantID, serverurl;
     private int loaderLayoutId, successLayoutId, failureLayoutId;
 
     private PaytmHelper(Context context, String MID, String serverUrl, int loaderLayoutId, int failureLayoutId, int successLayoutId) {
@@ -30,17 +30,15 @@ public class PaytmHelper {
     }
 
     public void startPayment(Paytm paytm, PaytmHelperTransactionCallback paytmHelperTransactionCallback){
-
-        context.startActivity(new Intent(context, PaytmActivity.class)
-            .putExtra("paytmdata",paytm)
-            .putExtra("paytmlistener", paytmHelperTransactionCallback)
+        Intent i = new Intent(context, PaytmActivity.class)
                 .putExtra("loader", loaderLayoutId)
                 .putExtra("failure", failureLayoutId)
                 .putExtra("success", successLayoutId)
                 .putExtra("serverurl", serverurl)
                 .putExtra("paytmmid", merchantID)
-        );
-
+                .putExtra("paytmdata",paytm)
+                .putExtra("paytmlistener", paytmHelperTransactionCallback);
+        context.startActivity(i);
     }
 
     public String getServerurl() {

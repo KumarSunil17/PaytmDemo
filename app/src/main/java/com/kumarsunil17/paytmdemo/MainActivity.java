@@ -1,6 +1,7 @@
 package com.kumarsunil17.paytmdemo;
 
 import android.os.Bundle;
+import android.os.Parcel;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.View;
@@ -25,18 +26,28 @@ public class MainActivity extends AppCompatActivity {
         amount = findViewById(R.id.amount);
         orderid = findViewById(R.id.orderid);
         customerid = findViewById(R.id.customer_id);
-
     }
 
     public void proceedToPay(View view) {
         if (!TextUtils.isEmpty(amount.getText().toString()) && !TextUtils.isEmpty(orderid.getText().toString()) && !TextUtils.isEmpty(customerid.getText().toString())) {
 
             Paytm paytm = new Paytm(amount.getText().toString(),
+                    customerid.getText().toString(),
                     "skmuduli17@gmail.com",
                     "9438295102");
 
             PaytmHelper p = PaytmHelper.initialize(this, Constants.MERCHANT_ID,Constants.SERVER_URL, R.layout.loader_layout, R.layout.failure_layout, R.layout.success_layout);
             p.startPayment(paytm, new PaytmHelperTransactionCallback() {
+
+                @Override
+                public int describeContents() {
+                    return 0;
+                }
+
+                @Override
+                public void writeToParcel(Parcel dest, int flags) {
+                }
+
                 @Override
                 public void onTransactionResponse(Bundle inResponse) {
                     Toast.makeText(MainActivity.this, "Transaction success", Toast.LENGTH_SHORT).show();

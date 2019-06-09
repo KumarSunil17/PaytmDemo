@@ -9,6 +9,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
@@ -31,7 +32,7 @@ public class PaytmActivity extends AppCompatActivity {
     private RelativeLayout loaderLayout, failureLayout, successLayout;
     private Paytm paytm;
     private PaytmHelperTransactionCallback paytmHelperTransactionCallback;
-    private String merchantID, serverurl, orderid, customerid;
+    private String merchantID, serverurl, orderid;
     private int loaderLayoutId, successLayoutId, failureLayoutId;
 
     @Override
@@ -72,12 +73,12 @@ public class PaytmActivity extends AppCompatActivity {
     private void getIntentData(){
         merchantID = getIntent().getStringExtra("paytmmid");
         serverurl = getIntent().getStringExtra("serverurl");
-        paytm = (Paytm) getIntent().getExtras().get("paytmdata");
-        paytmHelperTransactionCallback = (PaytmHelperTransactionCallback) getIntent().getExtras().get("paytmlistener");
+        paytm = getIntent().getParcelableExtra("paytmdata");
+        paytmHelperTransactionCallback = getIntent().getParcelableExtra("paytmlistener");
 
-        loaderLayoutId = getIntent().getIntExtra("loader", R.id.loader_main);
-        successLayoutId = getIntent().getIntExtra("success", R.id.success_main);
-        failureLayoutId = getIntent().getIntExtra("failure", R.id.failure_main);
+        loaderLayoutId = getIntent().getIntExtra("loader", R.layout.loader_layout);
+        successLayoutId = getIntent().getIntExtra("success", R.layout.success_layout);
+        failureLayoutId = getIntent().getIntExtra("failure", R.layout.failure_layout);
     }
 
     private class GetChecksumServer extends AsyncTask<ArrayList<String>, Void, String> {
@@ -90,10 +91,9 @@ public class PaytmActivity extends AppCompatActivity {
 
         @Override
         protected void onPreExecute() {
-            super.onPreExecute();
+            setContentView(loaderLayoutId);
         }
 
-        @Override
         protected final String doInBackground(ArrayList<String>... arrayLists) {
             JSONParser jsonParser = new JSONParser(PaytmActivity.this);
             String param=
@@ -101,20 +101,24 @@ public class PaytmActivity extends AppCompatActivity {
                             "&email" + paytm.getEmail()+
                             "&phone" + paytm.getPhone()+
 //                            "&ORDER_ID=" + orderid+
-//                            "&CUST_ID="+ custid+
+                            "&CUST_ID="+ paytm.getCust_id()+
                             "&CHANNEL_ID=" + Constants.CHANNEL_ID +
                             "&TXN_AMOUNT=" + paytm.getAmount()+
                             "&WEBSITE=" + Constants.WEBSITE+
                             "&CALLBACK_URL=" + Constants.CALLBACK_URL+
                             "&INDUSTRY_TYPE_ID=" + Constants.INDUSTRY_TYPE_ID;
+            Log.e("server",serverurl+"/generateChecksum.php");
             JSONObject jsonObject = jsonParser.makeHttpRequest(serverurl+"/generateChecksum.php","POST",param);
-            Log.e("CheckSum result ",jsonObject.toString());
+            //Log.e("CheckSum result ",jsonObject.toString());
             try {
-                checksumhash=jsonObject.has("CHECKSUMHASH") ? jsonObject.getString("CHECKSUMHASH") : "";
-                orderid = jsonObject.getString("order_id");
-                customerid = jsonObject.getString("cust_id");
+                if (jsonObject.getBoolean("result")) {
+                    checksumhash = jsonObject.has("CHECKSUMHASH") ? jsonObject.getString("CHECKSUMHASH") : "";
+                    orderid = jsonObject.getString("order_id");
 
-                Log.e("CHECKSUMHASH ",checksumhash);
+                    Log.e("CHECKSUMHASH ", checksumhash);
+                }else{
+                    Toast.makeText(PaytmActivity.this, jsonObject.getString("reason"), Toast.LENGTH_SHORT).show();
+                }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -130,7 +134,7 @@ public class PaytmActivity extends AppCompatActivity {
             HashMap<String, String> paramMap = new HashMap<>();
             paramMap.put("MID", merchantID);
             paramMap.put("ORDER_ID", orderid);
-            paramMap.put("CUST_ID", customerid);
+            paramMap.put("CUST_ID", paytm.getCust_id());
             paramMap.put("CHANNEL_ID", Constants.CHANNEL_ID);
             paramMap.put("MOBILE", paytm.getPhone());
             paramMap.put("EMAIL", paytm.getEmail());
@@ -216,7 +220,18 @@ public class PaytmActivity extends AppCompatActivity {
         @Override
         protected String doInBackground(ArrayList<String>... arrayLists) {
             JSONParser jsonParser = new JSONParser(PaytmActivity.this);
-            String param = "CHECKSUMHASH="+checksum;
+            String param = "CHECKSUMHASH="+checksum+
+                    "MID=" + merchantID+
+                    "&email" + paytm.getEmail()+
+                    "&phone" + paytm.getPhone()+
+                    "&ORDER_ID=" + orderid+
+                    "&CUST_ID="+ paytm.getCust_id()+
+                    "&CHANNEL_ID=" + Constants.CHANNEL_ID +
+                    "&TXN_AMOUNT=" + paytm.getAmount()+
+                    "&WEBSITE=" + Constants.WEBSITE+
+                    "&CALLBACK_URL=" + Constants.CALLBACK_URL+
+                    "&INDUSTRY_TYPE_ID=" + Constants.INDUSTRY_TYPE_ID;
+
             JSONObject jsonObject = jsonParser.makeHttpRequest(serverurl+"/verifyChecksum.php","POST",param);
             Log.e("verify result : ",jsonObject.toString());
             try {

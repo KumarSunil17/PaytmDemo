@@ -4,9 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
-
 import org.json.JSONObject;
-
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -33,7 +31,7 @@ public class JSONParser {
             URL url1 = new URL(url);
             // check for request method
             HttpURLConnection urlConnection = (HttpURLConnection) url1.openConnection();
-            if (method.equals("POST")) {
+            if (method == "POST") {
                 // request method is POST
                 urlConnection.setDoOutput(true);
                 urlConnection.setRequestMethod("POST");
@@ -68,6 +66,7 @@ public class JSONParser {
                 urlConnection.disconnect();
             }
         }
+        // Log.e("jsonpardse ", "respone is "+ jObj.toString() );
         return jObj;
     }
 }

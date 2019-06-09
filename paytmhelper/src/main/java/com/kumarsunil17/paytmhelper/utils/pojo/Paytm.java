@@ -4,16 +4,21 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 public class Paytm implements Parcelable {
-    private String amount, email, phone;
+    private String amount,cust_id, email, phone;
 
-    public Paytm(String amount, String email, String phone) {
+    public Paytm(String amount, String cust_id, String email, String phone) {
         this.amount = amount;
+        this.cust_id = cust_id;
         this.email = email;
         this.phone = phone;
     }
 
-    private Paytm(Parcel in) {
+    public Paytm() {
+    }
+
+    protected Paytm(Parcel in) {
         amount = in.readString();
+        cust_id = in.readString();
         email = in.readString();
         phone = in.readString();
     }
@@ -36,6 +41,14 @@ public class Paytm implements Parcelable {
 
     public void setAmount(String amount) {
         this.amount = amount;
+    }
+
+    public String getCust_id() {
+        return cust_id;
+    }
+
+    public void setCust_id(String cust_id) {
+        this.cust_id = cust_id;
     }
 
     public String getEmail() {
@@ -62,6 +75,7 @@ public class Paytm implements Parcelable {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(amount);
+        dest.writeString(cust_id);
         dest.writeString(email);
         dest.writeString(phone);
     }
