@@ -3,21 +3,26 @@ package com.kumarsunil17.paytmhelper;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
+import android.os.Parcel;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
 import com.kumarsunil17.paytmhelper.utils.Constants;
-import com.kumarsunil17.paytmhelper.utils.JSONParser;
 import com.kumarsunil17.paytmhelper.utils.PaytmHelperTransactionCallback;
+import com.kumarsunil17.paytmhelper.utils.VolleySingleton;
 import com.kumarsunil17.paytmhelper.utils.pojo.Paytm;
-import com.paytm.pgsdk.Log;
 import com.paytm.pgsdk.PaytmOrder;
 import com.paytm.pgsdk.PaytmPGService;
 import com.paytm.pgsdk.PaytmPaymentTransactionCallback;
@@ -27,8 +32,10 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
-public class PaytmActivity extends AppCompatActivity {
+public class PaytmActivity extends AppCompatActivity implements PaytmPaymentTransactionCallback{
     private RelativeLayout loaderLayout, failureLayout, successLayout;
     private Paytm paytm;
     private PaytmHelperTransactionCallback paytmHelperTransactionCallback;
@@ -49,8 +56,64 @@ public class PaytmActivity extends AppCompatActivity {
         failureLayout = findViewById(successLayoutId);
         successLayout = findViewById(failureLayoutId);
 
-        GetChecksumServer dl = new GetChecksumServer(paytm);
-        dl.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, serverurl + "/generateChecksum.php",
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.e("generate : ", response);
+                        try {
+                            JSONObject jsonObject = new JSONObject(response);// if (jsonObject.getBoolean("result")) {
+                            String checksumhash = jsonObject.getString("CHECKSUMHASH");
+                            orderid = jsonObject.getString("ORDER_ID");
+
+                            PaytmPGService service = PaytmPGService.getStagingService();
+
+                            HashMap<String, String> paramMap = new HashMap<>();
+                            paramMap.put("MID", merchantID);
+                            paramMap.put("ORDER_ID", orderid);
+                            paramMap.put("CUST_ID", paytm.getCust_id());
+                            paramMap.put("CHANNEL_ID", "WAP");
+                            //paramMap.put("MOBILE", "89797");
+                            //paramMap.put("EMAIL", "as@as.com");
+                            paramMap.put("TXN_AMOUNT", paytm.getAmount());
+                            paramMap.put("WEBSITE", "WEBSTAGING");
+                            paramMap.put("CALLBACK_URL", "https://pguat.paytm.com/paytmchecksum/paytmCallback.jsp");
+                            paramMap.put("CHECKSUMHASH", checksumhash);
+                            paramMap.put("INDUSTRY_TYPE_ID", "Retail");
+
+                            PaytmOrder Order = new PaytmOrder(paramMap);
+
+                            service.initialize(Order, null);
+                            service.startPaymentTransaction(PaytmActivity.this, true, true, PaytmActivity.this);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.e("error", error.getMessage());
+                Toast.makeText(PaytmActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        }){
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String,String> m=new HashMap<>();
+                m.put("MID" , merchantID);
+                //m.put("email","skmuduli17@gmail.com");
+                //m.put("phone","9438295102");
+                m.put("ORDER_ID", "order"+paytm.getCust_id());
+                m.put("CUST_ID", paytm.getCust_id());
+                m.put("INDUSTRY_TYPE_ID" ,"Retail");
+                //m.put("txn_id","qer13");
+                m.put("CHANNEL_ID" , "WAP");
+                m.put("TXN_AMOUNT" , paytm.getAmount());
+                m.put("WEBSITE" , "WEBSTAGING");
+                m.put("CALLBACK_URL" , "https://pguat.paytm.com/paytmchecksum/paytmCallback.jsp");
+                return m;
+            }
+        };
+        VolleySingleton.getInstance(this).addToRequestQueue(stringRequest,this);
     }
 
     private void checkPermission() {
@@ -75,184 +138,102 @@ public class PaytmActivity extends AppCompatActivity {
         serverurl = getIntent().getStringExtra("serverurl");
         paytm = getIntent().getParcelableExtra("paytmdata");
         paytmHelperTransactionCallback = getIntent().getParcelableExtra("paytmlistener");
-
-        loaderLayoutId = getIntent().getIntExtra("loader", R.layout.loader_layout);
-        successLayoutId = getIntent().getIntExtra("success", R.layout.success_layout);
-        failureLayoutId = getIntent().getIntExtra("failure", R.layout.failure_layout);
+        loaderLayoutId = Integer.parseInt(getIntent().getStringExtra("loader"));
+        successLayoutId = Integer.parseInt(getIntent().getStringExtra("success"));
+        failureLayoutId = Integer.parseInt(getIntent().getStringExtra("failure"));
     }
 
-    private class GetChecksumServer extends AsyncTask<ArrayList<String>, Void, String> {
-        private String checksumhash = "";
-        private Paytm paytm;
+    @Override
+    public void onTransactionResponse(Bundle inResponse) {
+        Log.e("paytm", inResponse.toString());
 
-        GetChecksumServer(Paytm paytm) {
-            this.paytm = paytm;
-        }
-
-        @Override
-        protected void onPreExecute() {
-            setContentView(loaderLayoutId);
-        }
-
-        protected final String doInBackground(ArrayList<String>... arrayLists) {
-            JSONParser jsonParser = new JSONParser(PaytmActivity.this);
-            String param=
-                    "MID=" + merchantID+
-                            "&email" + paytm.getEmail()+
-                            "&phone" + paytm.getPhone()+
-//                            "&ORDER_ID=" + orderid+
-                            "&CUST_ID="+ paytm.getCust_id()+
-                            "&CHANNEL_ID=" + Constants.CHANNEL_ID +
-                            "&TXN_AMOUNT=" + paytm.getAmount()+
-                            "&WEBSITE=" + Constants.WEBSITE+
-                            "&CALLBACK_URL=" + Constants.CALLBACK_URL+
-                            "&INDUSTRY_TYPE_ID=" + Constants.INDUSTRY_TYPE_ID;
-            Log.e("server",serverurl+"/generateChecksum.php");
-            JSONObject jsonObject = jsonParser.makeHttpRequest(serverurl+"/generateChecksum.php","POST",param);
-            //Log.e("CheckSum result ",jsonObject.toString());
-            try {
-                if (jsonObject.getBoolean("result")) {
-                    checksumhash = jsonObject.has("CHECKSUMHASH") ? jsonObject.getString("CHECKSUMHASH") : "";
-                    orderid = jsonObject.getString("order_id");
-
-                    Log.e("CHECKSUMHASH ", checksumhash);
-                }else{
-                    Toast.makeText(PaytmActivity.this, jsonObject.getString("reason"), Toast.LENGTH_SHORT).show();
-                }
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            return checksumhash;
-        }
-
-        @Override
-        protected void onPostExecute(String s) {
-            Log.e(" setup acc ","  signup result  " + s);
-
-            PaytmPGService service = PaytmPGService.getStagingService();
-
-            HashMap<String, String> paramMap = new HashMap<>();
-            paramMap.put("MID", merchantID);
-            paramMap.put("ORDER_ID", orderid);
-            paramMap.put("CUST_ID", paytm.getCust_id());
-            paramMap.put("CHANNEL_ID", Constants.CHANNEL_ID);
-            paramMap.put("MOBILE", paytm.getPhone());
-            paramMap.put("EMAIL", paytm.getEmail());
-            paramMap.put("TXN_AMOUNT", paytm.getAmount());
-            paramMap.put("WEBSITE", Constants.WEBSITE);
-            paramMap.put("CALLBACK_URL" ,Constants.CALLBACK_URL);
-            paramMap.put("CHECKSUMHASH" , checksumhash);
-            paramMap.put("INDUSTRY_TYPE_ID",Constants.INDUSTRY_TYPE_ID);
-
-            PaytmOrder Order = new PaytmOrder(paramMap);
-
-            Log.e("checksum ", "param "+ paramMap.toString());
-
-            service.initialize(Order,null);
-            service.startPaymentTransaction(PaytmActivity.this, true, true,
-                    new PaytmPaymentTransactionCallback() {
+        if (inResponse.getString("STATUS").equalsIgnoreCase("TXN_SUCCESS")){
+            StringRequest stringRequest = new StringRequest(Request.Method.POST, serverurl + "/verifyChecksum.php",
+                    new Response.Listener<String>() {
                         @Override
-                        public void onTransactionResponse(Bundle inResponse) {
-                            Log.e("checksum ", " respon true " + inResponse.toString());
-                            String response = inResponse.getString("RESPMSG");
+                        public void onResponse(String response) {
+                            Log.e("verify : ", response);
+//                            setContentView(successLayout);
 
-                            if (inResponse.getString("STATUS").equalsIgnoreCase("TXN_FAILURE")){
-                                //failure
-                            }else{
-                                //success
-                                String checksum = inResponse.getString("CHECKSUMHASH");
-                                VerifyChecksumHelper v = new VerifyChecksumHelper(checksum);
-                                v.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                            try {
+                                JSONObject jsonObject = new JSONObject(response);// if (jsonObject.getBoolean("result")) {
+//                            String is_checksum_valid = jsonObject.getString("IS_CHECKSUM_VALID");
+//                            String txn_id = jsonObject.getString("ORDER_ID");
+//
+                                Bundle bundle = new Bundle();
+                                Iterator iter = jsonObject.keys();
+                                while(iter.hasNext()){
+                                    String key = (String)iter.next();
+                                    String value = jsonObject.getString(key);
+                                    bundle.putString(key,value);
+                                }
+                                paytmHelperTransactionCallback.onTransactionResponse(bundle);
+
+                            } catch (JSONException e) {
+                                e.printStackTrace();
                             }
                         }
+                    }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    Log.e("error", error.getMessage());
 
-                        @Override
-                        public void networkNotAvailable() {
-                            //showResult("Network unavailable", false);
-                            paytmHelperTransactionCallback.networkNotAvailable();
-                        }
-
-                        @Override
-                        public void clientAuthenticationFailed(String inErrorMessage) {
-                            //showResult(inErrorMessage, false);
-                            paytmHelperTransactionCallback.clientAuthenticationFailed(inErrorMessage);
-                        }
-
-                        @Override
-                        public void someUIErrorOccurred(String inErrorMessage) {
-                            //showResult(inErrorMessage, false);
-                            paytmHelperTransactionCallback.someUIErrorOccurred(inErrorMessage);
-                        }
-
-                        @Override
-                        public void onErrorLoadingWebPage(int iniErrorCode, String inErrorMessage, String inFailingUrl) {
-                            //showResult(inErrorMessage, false);
-                            paytmHelperTransactionCallback.onErrorLoadingWebPage(iniErrorCode, inErrorMessage, inFailingUrl);
-                        }
-
-                        @Override
-                        public void onBackPressedCancelTransaction() {
-                            //showResult("Cancelled by user", false);
-                            paytmHelperTransactionCallback.onBackPressedCancelTransaction();
-                        }
-
-                        @Override
-                        public void onTransactionCancel(String inErrorMessage, Bundle inResponse) {
-                            //showResult(inErrorMessage, false);
-                            paytmHelperTransactionCallback.onTransactionCancel(inErrorMessage,inResponse);
-                        }
-                    });
+                    Toast.makeText(PaytmActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }){
+                @Override
+                protected Map<String, String> getParams() {
+                    Map<String,String> m=new HashMap<>();
+                    m.put("MID" , merchantID);
+                    //m.put("email","skmuduli17@gmail.com");
+                    //m.put("phone","9438295102");
+                    m.put("ORDER_ID", "order"+paytm.getPhone());
+                    m.put("CUST_ID", paytm.getEmail());
+                    m.put("INDUSTRY_TYPE_ID" ,"Retail");
+                    //m.put("txn_id","qer13");
+                    m.put("CHANNEL_ID" , "WAP");
+                    m.put("TXN_AMOUNT" , paytm.getAmount());
+                    m.put("WEBSITE" , "WEBSTAGING");
+                    m.put("CALLBACK_URL" , "https://pguat.paytm.com/paytmchecksum/paytmCallback.jsp");
+                    return m;
+                }
+            };
+            VolleySingleton.getInstance(this).addToRequestQueue(stringRequest,this);
+        }else{
+            Toast.makeText(this, inResponse.getString("RESPMSG"), Toast.LENGTH_SHORT).show();
         }
     }
 
-    private class VerifyChecksumHelper extends AsyncTask<ArrayList<String>, Void, String> {
-        private String checksum, isValid;
-
-        VerifyChecksumHelper(String checksum) {
-            this.checksum = checksum;
-        }
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        @Override
-        protected String doInBackground(ArrayList<String>... arrayLists) {
-            JSONParser jsonParser = new JSONParser(PaytmActivity.this);
-            String param = "CHECKSUMHASH="+checksum+
-                    "MID=" + merchantID+
-                    "&email" + paytm.getEmail()+
-                    "&phone" + paytm.getPhone()+
-                    "&ORDER_ID=" + orderid+
-                    "&CUST_ID="+ paytm.getCust_id()+
-                    "&CHANNEL_ID=" + Constants.CHANNEL_ID +
-                    "&TXN_AMOUNT=" + paytm.getAmount()+
-                    "&WEBSITE=" + Constants.WEBSITE+
-                    "&CALLBACK_URL=" + Constants.CALLBACK_URL+
-                    "&INDUSTRY_TYPE_ID=" + Constants.INDUSTRY_TYPE_ID;
-
-            JSONObject jsonObject = jsonParser.makeHttpRequest(serverurl+"/verifyChecksum.php","POST",param);
-            Log.e("verify result : ",jsonObject.toString());
-            try {
-                isValid = jsonObject.getString("IS_CHECKSUM_VALID");
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            return isValid;
-        }
-
-        @Override
-        protected void onPostExecute(String s) {
-//            paytmHelperTransactionCallback.onTransactionResponse();
-
-            if (isValid.equalsIgnoreCase("Y")){
-                //transaction success
-                paytmHelperTransactionCallback.onTransactionResponse(null);
-            }
-        }
+    @Override
+    public void networkNotAvailable() {
+        paytmHelperTransactionCallback.networkNotAvailable();
     }
 
+    @Override
+    public void clientAuthenticationFailed(String inErrorMessage) {
+        paytmHelperTransactionCallback.clientAuthenticationFailed(inErrorMessage);
+    }
+
+    @Override
+    public void someUIErrorOccurred(String inErrorMessage) {
+        paytmHelperTransactionCallback.someUIErrorOccurred(inErrorMessage);
+    }
+
+    @Override
+    public void onErrorLoadingWebPage(int iniErrorCode, String inErrorMessage, String inFailingUrl) {
+        paytmHelperTransactionCallback.onErrorLoadingWebPage(iniErrorCode, inErrorMessage, inFailingUrl);
+    }
+
+    @Override
+    public void onBackPressedCancelTransaction() {
+        paytmHelperTransactionCallback.onBackPressedCancelTransaction();
+
+    }
+
+    @Override
+    public void onTransactionCancel(String inErrorMessage, Bundle inResponse) {
+        paytmHelperTransactionCallback.onTransactionCancel(inErrorMessage, inResponse);
+    }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {

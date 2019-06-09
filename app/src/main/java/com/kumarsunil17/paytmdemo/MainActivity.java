@@ -66,7 +66,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void someUIErrorOccurred(String inErrorMessage) {
                     Toast.makeText(MainActivity.this, inErrorMessage, Toast.LENGTH_SHORT).show();
-
                 }
 
                 @Override

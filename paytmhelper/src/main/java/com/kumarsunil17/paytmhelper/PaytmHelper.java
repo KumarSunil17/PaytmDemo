@@ -6,6 +6,9 @@ import android.content.Intent;
 import com.kumarsunil17.paytmhelper.utils.PaytmHelperTransactionCallback;
 import com.kumarsunil17.paytmhelper.utils.pojo.Paytm;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PaytmHelper {
 
     private static PaytmHelper mInstance;
@@ -31,9 +34,9 @@ public class PaytmHelper {
 
     public void startPayment(Paytm paytm, PaytmHelperTransactionCallback paytmHelperTransactionCallback){
         Intent i = new Intent(context, PaytmActivity.class)
-                .putExtra("loader", loaderLayoutId)
-                .putExtra("failure", failureLayoutId)
-                .putExtra("success", successLayoutId)
+                .putExtra("loader", String.valueOf(loaderLayoutId))
+                .putExtra("failure", String.valueOf(failureLayoutId))
+                .putExtra("success", String.valueOf(successLayoutId))
                 .putExtra("serverurl", serverurl)
                 .putExtra("paytmmid", merchantID)
                 .putExtra("paytmdata",paytm)
